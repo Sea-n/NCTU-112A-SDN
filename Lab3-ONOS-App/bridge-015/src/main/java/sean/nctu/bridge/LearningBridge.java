@@ -17,6 +17,10 @@ import org.onosproject.net.flow.DefaultFlowRule;
 import org.onosproject.net.flow.FlowRule;
 import org.onosproject.net.flow.FlowRuleService;
 import org.onosproject.net.flow.TrafficSelector;
+import org.onosproject.net.flow.TrafficTreatment;
+import org.onosproject.net.flowobjective.DefaultForwardingObjective;
+import org.onosproject.net.flowobjective.FlowObjectiveService;
+import org.onosproject.net.flowobjective.ForwardingObjective;
 import org.onosproject.net.packet.InboundPacket;
 import org.onosproject.net.packet.PacketContext;
 import org.onosproject.net.packet.PacketPriority;
@@ -45,6 +49,9 @@ public class LearningBridge {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected FlowRuleService flowRuleService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY)
+    protected FlowObjectiveService flowObjectiveService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected CoreService coreService;
@@ -84,14 +91,16 @@ public class LearningBridge {
     private class SeanPacketProcessor implements PacketProcessor {
         @Override
         public void process(PacketContext context) {
-            if (context.isHandled())
+            if (context.isHandled()) {
                 return;
+            }
 
             InboundPacket pkt = context.inPacket();
             Ethernet ethPkt = pkt.parsed();
 
-            if (ethPkt == null)
+            if (ethPkt == null) {
                 return;
+            }
 
             ConnectPoint cp = pkt.receivedFrom();
 
@@ -112,16 +121,34 @@ public class LearningBridge {
                 log.info("MAC address `" + dstMac + "` is matched on `" + cp.deviceId() + "`. Install a flow rule.");
 
                 context.treatmentBuilder().setOutput(outPort);
-                FlowRule fr = DefaultFlowRule.builder()
-                    .fromApp(appId)
-                    .forDevice(cp.deviceId())
-                    .withSelector(DefaultTrafficSelector.builder().matchEthSrc(srcMac).matchEthDst(dstMac).build())
-                    .withTreatment(DefaultTrafficTreatment.builder().setOutput(outPort).build())
-					.withPriority(30)
-                    .makeTemporary(30)
-                    .build();
+                TrafficSelector selector = DefaultTrafficSelector.builder()
+                    .matchEthSrc(srcMac).matchEthDst(dstMac).build();
+                TrafficTreatment treatment = DefaultTrafficTreatment.builder()
+                    .setOutput(outPort).build();
+                if (false) {
+                    FlowRule fr = DefaultFlowRule.builder()
+                        .fromApp(appId)
+                        .forDevice(cp.deviceId())
+                        .withSelector(selector)
+                        .withTreatment(treatment)
+                        .withPriority(30)
+                        .makeTemporary(30)
+                        .build();
 
-                flowRuleService.applyFlowRules(fr);
+                    flowRuleService.applyFlowRules(fr);
+                } else {
+                    ForwardingObjective forwardingObjective = DefaultForwardingObjective.builder()
+                        .fromApp(appId)
+                        .withSelector(selector)
+                        .withTreatment(treatment)
+                        .withPriority(30)
+                        .makeTemporary(30)
+                        .withFlag(ForwardingObjective.Flag.VERSATILE)
+                        .add();
+
+                    flowObjectiveService.forward(cp.deviceId(), forwardingObjective);
+                }
+
                 context.send();
             } else {
                 log.info("MAC address `" + dstMac + "` is missed on `" + cp.deviceId() + "`. Flood the packet.");
