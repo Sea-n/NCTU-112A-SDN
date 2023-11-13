@@ -2,7 +2,7 @@
   "apps": {
     "nctu.winlab.unicastdhcp": {
       "UnicastDhcpConfig": {
-        "serverLocation": "of:0000000000000003/2"
+        "serverLocation": "of:0000000000000003/3"
       }
     }
   }
