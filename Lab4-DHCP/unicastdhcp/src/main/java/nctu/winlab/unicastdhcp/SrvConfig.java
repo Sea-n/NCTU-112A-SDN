@@ -17,6 +17,7 @@ package nctu.winlab.unicastdhcp;
 
 import org.onosproject.core.ApplicationId;
 import org.onosproject.net.config.Config;
+import org.onosproject.net.ConnectPoint;
 
 public class SrvConfig extends Config<ApplicationId> {
 
@@ -27,7 +28,7 @@ public class SrvConfig extends Config<ApplicationId> {
     return hasOnlyFields(LOC);
   }
 
-  public String loc() {
-    return get(LOC, null);
+  public ConnectPoint cp() {
+    return ConnectPoint.deviceConnectPoint(get(LOC, null));
   }
 }
