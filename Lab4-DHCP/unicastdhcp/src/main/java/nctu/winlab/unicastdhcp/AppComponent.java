@@ -123,13 +123,19 @@ public class AppComponent {
 
   private void requestPackets() {
     TrafficSelector.Builder selector = DefaultTrafficSelector.builder()
-      .matchEthType(Ethernet.TYPE_IPV4);
+      .matchEthType(Ethernet.TYPE_IPV4)
+      .matchIPProtocol(IPv4.PROTOCOL_UDP)
+      .matchUdpDst(TpPort.tpPort(UDP.DHCP_SERVER_PORT))
+      .matchUdpSrc(TpPort.tpPort(UDP.DHCP_CLIENT_PORT));
     packetService.requestPackets(selector.build(), PacketPriority.CONTROL, appId);
   }
 
   private void cancelPackets() {
     TrafficSelector.Builder selector = DefaultTrafficSelector.builder()
-      .matchEthType(Ethernet.TYPE_IPV4);
+      .matchEthType(Ethernet.TYPE_IPV4)
+      .matchIPProtocol(IPv4.PROTOCOL_UDP)
+      .matchUdpDst(TpPort.tpPort(UDP.DHCP_SERVER_PORT))
+      .matchUdpSrc(TpPort.tpPort(UDP.DHCP_CLIENT_PORT));
     packetService.cancelPackets(selector.build(), PacketPriority.CONTROL, appId);
   }
 
@@ -171,6 +177,8 @@ public class AppComponent {
         return;
       }
 
+      log.info("processDhcpPacket(dhcpPayload={})", dhcpPayload);
+
       Ethernet packet = context.inPacket().parsed();
       DHCP.MsgType incomingPacketType = null;
       boolean flagIfRequestedIP = false;
@@ -182,16 +190,19 @@ public class AppComponent {
         if (option.getCode() == OptionCode_MessageType.getValue()) {
           byte[] data = option.getData();
           incomingPacketType = DHCP.MsgType.getType(data[0]);
+          log.info("data = {}", data);
         }
         if (option.getCode() == OptionCode_RequestedIP.getValue()) {
           byte[] data = option.getData();
           requestedIP = Ip4Address.valueOf(data);
           flagIfRequestedIP = true;
+          log.info("requestedIP = {}", requestedIP);
         }
         if (option.getCode() == OptionCode_DHCPServerIp.getValue()) {
           byte[] data = option.getData();
           serverIP = Ip4Address.valueOf(data);
           flagIfServerIP = true;
+          log.info("serverIP = {}", serverIP);
         }
       }
 
@@ -210,12 +221,14 @@ public class AppComponent {
       if (incomingPacketType != MsgType.DHCPDISCOVER && incomingPacketType != MsgType.DHCPREQUEST) {
         return;
       }
+      log.info("incomingPacketType = {}", incomingPacketType);
 
       if (installedMacs.contains(packet.getSourceMAC())) {
-        log.info("Ignoring in-packets for already installed intents.");
-        return;
+        return;  // Already installed
       }
       installedMacs.add(packet.getSourceMAC());
+
+      ConnectPoint cp = context.inPacket().receivedFrom();
 
       TrafficSelector.Builder clientSelector = DefaultTrafficSelector.builder()
         .matchEthType(Ethernet.TYPE_IPV4)
@@ -229,35 +242,31 @@ public class AppComponent {
         .matchUdpSrc(TpPort.tpPort(UDP.DHCP_SERVER_PORT))
         .matchUdpDst(TpPort.tpPort(UDP.DHCP_CLIENT_PORT));
 
-      ConnectPoint cp = context.inPacket().receivedFrom();
-
       /* clientIntent: cp -> dhcpServer */
       PointToPointIntent clientIntent = PointToPointIntent.builder()
-        .appId(appId)
-        .priority(42)
-        .selector(clientSelector.build())
         .filteredIngressPoint(new FilteredConnectPoint(cp))
         .filteredEgressPoint(new FilteredConnectPoint(dhcpServer))
+        .selector(clientSelector.build())
+        .priority(42)
+        .appId(appId)
         .build();
       intentService.submit(clientIntent);
+      installedIntents.add(clientIntent);
+      log.info("Intent `{}`, port `{}` => `{}`, port `{}` is submitted.",  // cp -> dhcpServer
+        cp.deviceId(), cp.port(), dhcpServer.deviceId(), dhcpServer.port());
 
       /* serverIntent: dhcpServer -> cp */
       PointToPointIntent serverIntent = PointToPointIntent.builder()
-        .appId(appId)
-        .priority(42)
-        .selector(serverSelector.build())
         .filteredIngressPoint(new FilteredConnectPoint(dhcpServer))
         .filteredEgressPoint(new FilteredConnectPoint(cp))
+        .selector(serverSelector.build())
+        .priority(42)
+        .appId(appId)
         .build();
       intentService.submit(serverIntent);
-
-      installedIntents.add(clientIntent);
-      log.info("Intent `{}`, port `{}` => `{}`, port `{}` is submitted.",  // cp -> dhcpServer
-          cp.deviceId(), cp.port(), dhcpServer.deviceId(), dhcpServer.port());
-
       installedIntents.add(serverIntent);
       log.info("Intent `{}`, port `{}` => `{}`, port `{}` is submitted.",  // dhcpServer -> cp
-          dhcpServer.deviceId(), dhcpServer.port(), cp.deviceId(), cp.port());
+        dhcpServer.deviceId(), dhcpServer.port(), cp.deviceId(), cp.port());
     }
 
     @Override
@@ -267,20 +276,22 @@ public class AppComponent {
         return;
       }
 
-      if (packet.getEtherType() == Ethernet.TYPE_IPV4) {
-        IPv4 ipv4Packet = (IPv4) packet.getPayload();
+      if (packet.getEtherType() != Ethernet.TYPE_IPV4) {
+        return;
+      }
+      IPv4 ipv4Packet = (IPv4) packet.getPayload();
 
-        if (ipv4Packet.getProtocol() == IPv4.PROTOCOL_UDP) {
-          UDP udpPacket = (UDP) ipv4Packet.getPayload();
+      if (ipv4Packet.getProtocol() != IPv4.PROTOCOL_UDP) {
+        return;
+      }
+      UDP udpPacket = (UDP) ipv4Packet.getPayload();
 
-          if (udpPacket.getDestinationPort() == UDP.DHCP_SERVER_PORT &&
-              udpPacket.getSourcePort() == UDP.DHCP_CLIENT_PORT) {
-            // This is meant for the dhcp server so process the packet here.
+      if (udpPacket.getDestinationPort() == UDP.DHCP_SERVER_PORT &&
+          udpPacket.getSourcePort() == UDP.DHCP_CLIENT_PORT) {
+        // This is meant for the dhcp server so process the packet here.
 
-            DHCP dhcpPayload = (DHCP) udpPacket.getPayload();
-            processDhcpPacket(context, dhcpPayload);
-          }
-        }
+        DHCP dhcpPayload = (DHCP) udpPacket.getPayload();
+        processDhcpPacket(context, dhcpPayload);
       }
     }
   }
