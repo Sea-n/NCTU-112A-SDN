@@ -127,7 +127,7 @@ public class AppComponent {
       .matchIPProtocol(IPv4.PROTOCOL_UDP)
       .matchUdpDst(TpPort.tpPort(UDP.DHCP_SERVER_PORT))
       .matchUdpSrc(TpPort.tpPort(UDP.DHCP_CLIENT_PORT));
-    packetService.requestPackets(selector.build(), PacketPriority.CONTROL, appId);
+    packetService.requestPackets(selector.build(), PacketPriority.REACTIVE, appId);
   }
 
   private void cancelPackets() {
@@ -136,7 +136,7 @@ public class AppComponent {
       .matchIPProtocol(IPv4.PROTOCOL_UDP)
       .matchUdpDst(TpPort.tpPort(UDP.DHCP_SERVER_PORT))
       .matchUdpSrc(TpPort.tpPort(UDP.DHCP_CLIENT_PORT));
-    packetService.cancelPackets(selector.build(), PacketPriority.CONTROL, appId);
+    packetService.cancelPackets(selector.build(), PacketPriority.REACTIVE, appId);
   }
 
   private class SrvConfigListener implements NetworkConfigListener {
@@ -151,7 +151,7 @@ public class AppComponent {
 
       SrvConfig config = cfgService.getConfig(appId, SrvConfig.class);
       if (config != null) {
-        dhcpServer = config.cp();
+        dhcpServer = config.srv();
         log.info("DHCP server is connected to `{}`, port `{}`",
             dhcpServer.deviceId(), dhcpServer.port());
       }
@@ -218,10 +218,10 @@ public class AppComponent {
 
       /* New code */
 
+      log.info("incomingPacketType = {}", incomingPacketType);
       if (incomingPacketType != MsgType.DHCPDISCOVER && incomingPacketType != MsgType.DHCPREQUEST) {
         return;
       }
-      log.info("incomingPacketType = {}", incomingPacketType);
 
       if (installedMacs.contains(packet.getSourceMAC())) {
         return;  // Already installed

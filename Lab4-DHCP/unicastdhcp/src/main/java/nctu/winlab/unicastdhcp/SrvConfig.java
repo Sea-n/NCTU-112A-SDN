@@ -21,14 +21,19 @@ import org.onosproject.net.ConnectPoint;
 
 public class SrvConfig extends Config<ApplicationId> {
 
-  public static final String LOC = "serverLocation";
+  public static final String SRV_LOC = "serverLocation";
+  public static final String CLI_LOC = "clientLocation";
 
   @Override
   public boolean isValid() {
-    return hasOnlyFields(LOC);
+    return hasOnlyFields(SRV_LOC, CLI_LOC);
   }
 
-  public ConnectPoint cp() {
-    return ConnectPoint.deviceConnectPoint(get(LOC, null));
+  public ConnectPoint srv() {
+    return ConnectPoint.deviceConnectPoint(get(SRV_LOC, null));
+  }
+
+  public ConnectPoint cli() {
+    return ConnectPoint.deviceConnectPoint(get(CLI_LOC, null));
   }
 }
