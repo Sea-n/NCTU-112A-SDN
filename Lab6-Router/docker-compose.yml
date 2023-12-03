@@ -1,6 +1,6 @@
 version: '3'
 services:
-  h1:
+  h1: &host
     image: host
     container_name: h1
     privileged: true
@@ -11,15 +11,30 @@ services:
       - NET_ADMIN
       - NET_BROADCAST
     networks:
-      R1h1br:
-        ipv4_address: 172.18.0.3
+      R1h1br: {ipv4_address: 10.18.0.3}
     entrypoint: ["/bin/sh","-c"]
     command:
-    - |
-      ip route del default 
-      ip route add default via 172.18.0.2
-      sleep infinity
-  R1:
+    command: ["ip route del default; ip route add default via 10.18.0.2; sleep infinity"]
+  h2:
+    <<: *host
+    container_name: h2
+    networks:
+      R2h2br: {ipv4_address: 10.19.0.3}
+    command: ["ip route del default; ip route add default via 10.19.0.2; sleep infinity"]
+  h3:
+    <<: *host
+    container_name: h3
+    networks:
+      R4h3br: {ipv4_address: 10.22.0.3}
+    command: ["ip route del default; ip route add default via 10.22.0.2; sleep infinity"]
+  h4:
+    <<: *host
+    container_name: h4
+    networks:
+      R5h4br: {ipv4_address: 10.24.0.3}
+    command: ["ip route del default; ip route add default via 10.24.0.2; sleep infinity"]
+
+  R1: &router
     image: opencord/quagga
     container_name: R1
     privileged: true
@@ -29,15 +44,63 @@ services:
       - NET_ADMIN
       - NET_BROADCAST
     networks:
-      R1h1br:
-        ipv4_address: 172.18.0.2
+      R1h1br: {ipv4_address: 10.18.0.2}
+      R123br: {ipv4_address: 10.20.0.2}
     volumes:
-      - ./config/R1/zebra.conf:/etc/quagga/zebra.conf
-      - ./config/R1/bgpd.conf:/etc/quagga/bgpd.conf
+      - ./config/R1:/etc/quagga
+  R2:
+    <<: *router
+    container_name: R2
+    networks:
+      R2h2br: {ipv4_address: 10.19.0.2}
+      R123br: {ipv4_address: 10.20.0.3}
+    volumes:
+      - ./config/R2:/etc/quagga
+  R3:
+    <<: *router
+    container_name: R3
+    networks:
+      R123br: {ipv4_address: 10.20.0.4}
+      R3R4br: {ipv4_address: 10.21.0.2}
+      R3R5br: {ipv4_address: 10.23.0.2}
+    volumes:
+      - ./config/R3:/etc/quagga
+  R4:
+    <<: *router
+    container_name: R4
+    networks:
+      R3R4br: {ipv4_address: 10.21.0.3}
+      R4h3br: {ipv4_address: 10.22.0.2}
+    volumes:
+      - ./config/R4:/etc/quagga
+  R5:
+    <<: *router
+    container_name: R5
+    networks:
+      R3R5br: {ipv4_address: 10.23.0.3}
+      R5h4br: {ipv4_address: 10.24.0.2}
+    volumes:
+      - ./config/R5:/etc/quagga
 
 networks:
   R1h1br:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.18.0.0/16
+    ipam: {config: [{subnet: "10.18.0.0/16"}]}
+  R2h2br:
+    driver: bridge
+    ipam: {config: [{subnet: "10.19.0.0/16"}]}
+  R123br:
+    driver: bridge
+    ipam: {config: [{subnet: "10.20.0.0/16"}]}
+  R3R4br:
+    driver: bridge
+    ipam: {config: [{subnet: "10.21.0.0/16"}]}
+  R4h3br:
+    driver: bridge
+    ipam: {config: [{subnet: "10.22.0.0/16"}]}
+  R3R5br:
+    driver: bridge
+    ipam: {config: [{subnet: "10.23.0.0/16"}]}
+  R5h4br:
+    driver: bridge
+    ipam: {config: [{subnet: "10.24.0.0/16"}]}
