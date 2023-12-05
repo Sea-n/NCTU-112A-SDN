@@ -44,6 +44,7 @@ public class ProxyArp {
     private ApplicationId appId;
 
     protected Map<DeviceId, Map<Ip4Address, MacAddress>> arpTables = Maps.newConcurrentMap();
+    protected Map<DeviceId, Map<MacAddress, PortNumber>> macTables = Maps.newConcurrentMap();
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected CoreService coreService;
@@ -96,6 +97,8 @@ public class ProxyArp {
             ConnectPoint cp = pkt.receivedFrom();
             arpTables.putIfAbsent(cp.deviceId(), Maps.newConcurrentMap());
             Map<Ip4Address, MacAddress> arpTable = arpTables.get(cp.deviceId());
+            macTables.putIfAbsent(cp.deviceId(), Maps.newConcurrentMap());
+            Map<MacAddress, PortNumber> macTable = macTables.get(cp.deviceId());
 
             /* Layer 2 */
             MacAddress srcMac = ethPkt.getSourceMAC();
@@ -113,6 +116,11 @@ public class ProxyArp {
                 arpTable.put(srcIp, srcMac);
             }
 
+            if (macTable.get(srcMac) == null) {
+                macTable.put(srcMac, cp.port());
+            }
+
+            log.info("ARP: " + srcIp + " (" + srcMac + ") -> " + dstIp + " (" + dstMac + ")");
             if (arpPkt.getOpCode() == ARP.OP_REQUEST) {
                 MacAddress resMac = arpTable.get(dstIp);
                 if (resMac == null) {
@@ -132,6 +140,11 @@ public class ProxyArp {
             } else if (arpPkt.getOpCode() == ARP.OP_REPLY) {
                 log.info("RECV REPLY. Requested MAC = " + srcMac);
                 // log.info("ARP Reply: " + srcIp + " (" + srcMac + ") -> " + dstIp + " (" + dstMac + ")");
+                PortNumber outPort = macTable.get(dstMac);
+                if (outPort != null) {
+                    context.treatmentBuilder().setOutput(outPort);
+                    context.send();
+                }
             } else {
                 log.info("ARP Op" + arpPkt.getOpCode() + ": "
                         + srcIp + " (" + srcMac + ") -> " + dstIp + " (" + dstMac + ")");
