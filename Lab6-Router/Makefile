@@ -1,18 +1,30 @@
 all:
-	ovs-vsctl add-br R123br
 	docker-compose up -d --build
+	ovs-vsctl add-br R123br
+	ovs-docker add-port R123br R123-br R1 --ipaddress=10.20.0.2/16
+	ovs-docker add-port R123br R123-br R2 --ipaddress=10.20.0.3/16
+	ovs-docker add-port R123br R123-br R3 --ipaddress=10.20.0.4/16
 
 clean:
 	docker-compose down
 	ovs-vsctl del-br R123br
 
-oa:
+onos-app:
 	onos-app localhost activate org.onosproject.openflow
 	onos-app localhost activate org.onosproject.fwd
 	onos-app localhost activate org.onosproject.fpm
 
-showroute:
-	@for h in R1 R2 R3 R4 R5; do echo "### $$h ###"; docker exec $$h ip ro; done
+show-route:
+	@for h in R1 R2 R3 R4 R5; do \
+		echo "### $$h ###"; \
+		docker exec $$h ip route; \
+	done
+
+show-ip:
+	@for h in R1 R2 R3 R4 R5 h1 h2 h3 h4; do \
+		echo "### $$h ###"; \
+		docker exec $$h ip addr; \
+	done
 
 pingall:
 	@for h in h1 h2 h3 h4; do \

@@ -45,7 +45,6 @@ services:
       - NET_BROADCAST
     networks:
       R1h1br: {ipv4_address: 10.18.0.2}
-      R123br: {ipv4_address: 10.20.0.2}
     volumes:
       - ./config/R1:/etc/quagga
   R2:
@@ -53,14 +52,12 @@ services:
     container_name: R2
     networks:
       R2h2br: {ipv4_address: 10.19.0.2}
-      R123br: {ipv4_address: 10.20.0.3}
     volumes:
       - ./config/R2:/etc/quagga
   R3:
     <<: *router
     container_name: R3
     networks:
-      R123br: {ipv4_address: 10.20.0.4}
       R3R4br: {ipv4_address: 10.21.0.2}
       R3R5br: {ipv4_address: 10.23.0.2}
     volumes:
@@ -89,9 +86,6 @@ networks:
   R2h2br:
     driver: bridge
     ipam: {config: [{subnet: "10.19.0.0/16"}]}
-  R123br:
-    driver: bridge
-    ipam: {config: [{subnet: "10.20.0.0/16"}]}
   R3R4br:
     driver: bridge
     ipam: {config: [{subnet: "10.21.0.0/16"}]}
