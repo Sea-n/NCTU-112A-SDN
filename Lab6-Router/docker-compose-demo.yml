@@ -1,0 +1,44 @@
+version: '3'
+services:
+  h1: &host
+    image: host
+    container_name: h1
+    privileged: true
+    build:
+      context: .
+      dockerfile: host.Dockerfile
+    cap_add:
+      - NET_ADMIN
+      - NET_BROADCAST
+    entrypoint: ["/bin/sh","-c"]
+    command: ["ip route del default; ip route add default via 10.18.0.2; sleep infinity"]
+  h2:
+    <<: *host
+    container_name: h2
+    command: ["ip route del default; ip route add default via 10.19.0.2; sleep infinity"]
+
+  R1: &router
+    image: opencord/quagga
+    container_name: R1
+    privileged: true
+    sysctls:
+      - net.ipv4.ip_forward=1
+    cap_add:
+      - NET_ADMIN
+      - NET_BROADCAST
+    networks:
+      R1R2br: {ipv4_address: 10.20.0.2}
+    volumes:
+      - ./config/Demo-R1:/etc/quagga
+  R2:
+    <<: *router
+    container_name: R2
+    networks:
+      R1R2br: {ipv4_address: 10.20.0.3}
+    volumes:
+      - ./config/Demo-R2:/etc/quagga
+
+networks:
+  R1R2br:
+    driver: bridge
+    ipam: {config: [{subnet: "10.20.0.0/16"}]}

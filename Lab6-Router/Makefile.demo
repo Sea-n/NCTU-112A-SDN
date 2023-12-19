@@ -1,0 +1,36 @@
+all:
+	docker-compose -f docker-compose-demo.yml up -d --build
+	ovs-vsctl add-br R1h1br
+	ovs-vsctl add-br R2h2br
+	ovs-docker add-port R1h1br R1h1-br R1 --ipaddress=10.18.0.2/16
+	ovs-docker add-port R1h1br R1h1-br h1 --ipaddress=10.18.0.3/16
+	ovs-docker add-port R2h2br R2h2-br R2 --ipaddress=10.19.0.2/26
+	ovs-docker add-port R2h2br R2h2-br h2 --ipaddress=10.19.0.3/26
+
+clean:
+	docker-compose -f docker-compose-demo.yml down
+	ovs-vsctl del-br R1h1br
+	ovs-vsctl del-br R2h2br
+
+onos-app:
+	onos-app localhost activate org.onosproject.openflow
+	onos-app localhost activate org.onosproject.fwd
+	onos-app localhost activate org.onosproject.fpm
+
+show-route:
+	@for h in R1 R2 h1 h2; do \
+		echo "### $$h ###"; \
+		docker exec $$h ip route; \
+		echo; \
+	done
+
+show-ip:
+	@for h in R1 R2 h1 h2; do \
+		echo "### $$h ###"; \
+		docker exec $$h ip addr; \
+		echo; \
+	done
+
+pingall:
+	docker exec h1 ping -c1 -W1 h2
+	docker exec h2 ping -c1 -W1 h1

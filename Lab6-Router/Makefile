@@ -15,15 +15,17 @@ onos-app:
 	onos-app localhost activate org.onosproject.fpm
 
 show-route:
-	@for h in R1 R2 R3 R4 R5; do \
+	@for h in R1 R2 R3 R4 R5 h1 h2 h3 h4; do \
 		echo "### $$h ###"; \
 		docker exec $$h ip route; \
+		echo; \
 	done
 
 show-ip:
 	@for h in R1 R2 R3 R4 R5 h1 h2 h3 h4; do \
 		echo "### $$h ###"; \
 		docker exec $$h ip addr; \
+		echo; \
 	done
 
 pingall:
