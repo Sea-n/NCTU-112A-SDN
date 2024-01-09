@@ -119,18 +119,18 @@ build_bridge_container_path bre2 er2 192.168.52.1/24
 build_bridge_container_path bre3 h05 192.168.53.2/24 192.168.53.1
 build_bridge_container_path bre3 er3 192.168.53.1/24
 
-build_ovs_container_path ovs2 er1 172.30.1.2/24
-build_ovs_container_path ovs2 er2 172.30.2.2/24
-build_ovs_container_path ovs1 er3 172.30.3.2/24
+build_ovs_container_path ovs2 er1 10.30.1.2/24
+build_ovs_container_path ovs2 er2 10.30.2.2/24
+build_ovs_container_path ovs1 er3 10.30.3.2/24
 
 # speaker
 create_veth_pair vethhostspeaker vethspeakerhost
-ip a add 172.29.1.1/24 dev vethhostspeaker
-set_intf_container speaker vethspeakerhost 172.29.1.2/24
+ip a add 10.29.1.1/24 dev vethhostspeaker
+set_intf_container speaker vethspeakerhost 10.29.1.2/24
 
-docker exec -it speaker ip a add 172.30.1.1/24 dev vethspeakerovs2
-docker exec -it speaker ip a add 172.30.2.1/24 dev vethspeakerovs2
-docker exec -it speaker ip a add 172.30.3.1/24 dev vethspeakerovs2
+docker exec -it speaker ip a add 10.30.1.1/24 dev vethspeakerovs2
+docker exec -it speaker ip a add 10.30.2.1/24 dev vethspeakerovs2
+docker exec -it speaker ip a add 10.30.3.1/24 dev vethspeakerovs2
 
 docker exec -it h01 ping -c 1 8.8.8.8
 docker exec -it h02 ping -c 1 8.8.8.8
@@ -138,9 +138,9 @@ docker exec -it h03 ping -c 1 8.8.8.8
 docker exec -it h04 ping -c 1 8.8.8.8
 docker exec -it h05 ping -c 1 8.8.8.8
 
-docker exec -it er1 ping -c 1 172.30.1.1
-docker exec -it er2 ping -c 1 172.30.2.1
-docker exec -it er3 ping -c 1 172.30.3.1
+docker exec -it er1 ping -c 1 10.30.1.1
+docker exec -it er2 ping -c 1 10.30.2.1
+docker exec -it er3 ping -c 1 10.30.3.1
 
 create_veth_pair vethdhcpsovs1 vethovs1dhcps
 ovs-vsctl add-port ovs1 vethovs1dhcps
