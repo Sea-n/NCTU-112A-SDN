@@ -217,6 +217,7 @@ public class VRouter {
                 .setEthSrc(quaggaMac)
                 .setEthDst(nextHopMac)
                 .build();
+            log.info("[SDN->External] srcEth: {}, dstEth: {}", quaggaMac, nextHopMac);
 
             TrafficSelector selector = DefaultTrafficSelector.builder()
                 .matchEthType(Ethernet.TYPE_IPV4)
