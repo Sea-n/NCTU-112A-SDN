@@ -7,20 +7,17 @@ if [ "$EUID" -ne 0 ]
   exit
 fi
 
-for c in h01 h02 h03 h04 h05 h06 er1 er2 er3 speaker h07 er4; do
+for c in h01 h02 h03 h04 h05 h06 er1 er2 er3 speaker; do
     docker kill --signal=9 $c
     docker rm $c
 done
 
 ovs-vsctl del-br ovs1
 ovs-vsctl del-br ovs2
-ovs-vsctl del-br ovs3
-ovs-vsctl del-br ovs4
 
 ip l del bre1
 ip l del bre2
 ip l del bre3
-ip l del bre4
 ip l del bree
 
 basename -a /sys/class/net/* | grep -P 'veth(bre|ovs|host)' | xargs -I '{}' ip l del {}
