@@ -23,4 +23,4 @@ ip l del bre3
 ip l del bre4
 ip l del bree
 
-basename -a /sys/class/net/* | grep veth | xargs -I '{}' ip l del {}
+basename -a /sys/class/net/* | grep -P 'veth(bre|ovs|host)' | xargs -I '{}' ip l del {}
