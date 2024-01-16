@@ -1,4 +1,7 @@
 #!/bin/bash
+set -Exu
+cd "$(dirname "$0")" || exit 1
+
 if [ "$EUID" -ne 0 ]
   then echo "Please run as root"
   exit

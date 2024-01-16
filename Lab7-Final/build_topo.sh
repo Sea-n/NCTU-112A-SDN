@@ -1,25 +1,29 @@
 #!/bin/bash
-#set -x
+set -Exeuo pipefail
 
 
-if [ "$EUID" -ne 0 ]
-  then echo "Please run as root"
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run as root"
   exit
 fi
+
+# check command exists
+ovs-vsctl -V
+brctl show | head -n2
 
 routerImage="quagga-fpm"
 hostImage="host-mano:latest"
 BASEDIR=$(dirname "$0")
 
 # params: endpoint1 endpoint2
-function create_veth_pair {
+create_veth_pair() {
     ip link add $1 type veth peer name $2
     ip link set $1 up
     ip link set $2 up
 }
 
 # params: image_name container_name
-function add_container {
+add_container() {
 	docker run -dit --network=none --privileged --cap-add NET_ADMIN --cap-add SYS_MODULE \
 		 --hostname $2 --name $2 ${@:3} $1
 	pid=$(docker inspect -f '{{.State.Pid}}' $(docker ps -aqf "name=$2"))
@@ -28,35 +32,34 @@ function add_container {
 }
 
 # params: container_name infname [ipaddress] [gw addr]
-function set_intf_container {
+set_intf_container() {
     pid=$(docker inspect -f '{{.State.Pid}}' $(docker ps -aqf "name=$1"))
     ifname=$2
-    ipaddr=$3
+    ipaddr=${3:-}
+	gateway=${4:-}
     echo "Add interface $ifname with ip $ipaddr to container $1"
 
     ip link set "$ifname" netns "$pid"
-    if [ $# -ge 3 ]
-    then
+    if [ $# -ge 3 ]; then
         ip netns exec "$pid" ip addr add "$ipaddr" dev "$ifname"
     fi
     ip netns exec "$pid" ip link set "$ifname" up
-    if [ $# -ge 4 ]
-    then
-        ip netns exec "$pid" route add default gw $4
+    if [ $# -ge 4 ]; then
+        ip netns exec "$pid" route add default gw "$gateway"
     fi
 }
 
 # params: bridge_name container_name [ipaddress] [gw addr]
-function build_bridge_container_path {
+build_bridge_container_path() {
     br_inf="veth$1$2"
     container_inf="veth$2$1"
     create_veth_pair $br_inf $container_inf
     brctl addif $1 $br_inf
-    set_intf_container $2 $container_inf $3 $4
+    set_intf_container $2 $container_inf ${3:-} ${4:-}
 }
 
 # params: ovs1 ovs2
-function build_ovs_path {
+build_ovs_path() {
     inf1="veth$1$2"
     inf2="veth$2$1"
     create_veth_pair $inf1 $inf2
@@ -65,12 +68,12 @@ function build_ovs_path {
 }
 
 # params: ovs container [ipaddress] [gw addr]
-function build_ovs_container_path {
+build_ovs_container_path() {
     ovs_inf="veth$1$2"
     container_inf="veth$2$1"
     create_veth_pair $ovs_inf $container_inf
     ovs-vsctl add-port $1 $ovs_inf
-    set_intf_container $2 $container_inf $3 $4
+    set_intf_container $2 $container_inf ${3:-} ${4:-}
 }
 
 iptables -P FORWARD ACCEPT
@@ -132,15 +135,15 @@ docker exec -it speaker ip a add 10.30.1.1/24 dev vethspeakerovs2
 docker exec -it speaker ip a add 10.30.2.1/24 dev vethspeakerovs2
 docker exec -it speaker ip a add 10.30.3.1/24 dev vethspeakerovs2
 
-docker exec -it h01 ping -c 1 8.8.8.8
-docker exec -it h02 ping -c 1 8.8.8.8
-docker exec -it h03 ping -c 1 8.8.8.8
-docker exec -it h04 ping -c 1 8.8.8.8
-docker exec -it h05 ping -c 1 8.8.8.8
+docker exec -it h01 ping -c 1 -W 1 8.8.8.8 || true
+docker exec -it h02 ping -c 1 -W 1 8.8.8.8 || true
+docker exec -it h03 ping -c 1 -W 1 8.8.8.8 || true
+docker exec -it h04 ping -c 1 -W 1 8.8.8.8 || true
+docker exec -it h05 ping -c 1 -W 1 8.8.8.8 || true
 
-docker exec -it er1 ping -c 1 10.30.1.1
-docker exec -it er2 ping -c 1 10.30.2.1
-docker exec -it er3 ping -c 1 10.30.3.1
+docker exec -it er1 ping -c 1 -W 1 10.30.1.1 || true
+docker exec -it er2 ping -c 1 -W 1 10.30.2.1 || true
+docker exec -it er3 ping -c 1 -W 1 10.30.3.1 || true
 
 create_veth_pair vethdhcpsovs1 vethovs1dhcps
 ovs-vsctl add-port ovs1 vethovs1dhcps
